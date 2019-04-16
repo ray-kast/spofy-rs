@@ -1,5 +1,5 @@
 [package]
-name = "spofy"
+name = "spofy_core"
 version = "0.1.0"
 description = "The core backend for the Spofy client."
 authors = ["rookie1024 <rookie1286@gmail.com>"]
