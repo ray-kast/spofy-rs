@@ -1,0 +1,23 @@
+[package]
+name = "spofy-cli"
+version ="0.1.0"
+description = "A command-line interface for Spofy."
+authors = ["rookie1024 <rookie1286@gmail.com>"]
+edition = "2018"
+
+[[bin]]
+name = "spofy"
+path = "main.rs"
+
+[dependencies]
+clap = "2.33.0"
+dotenv = "0.13.0"
+failure = "0.1.5"
+failure_derive = "0.1.5"
+futures = "0.1.26"
+serde = "1.0.90"
+serde_derive = "1.0.90"
+serde-value = "0.5.3"
+spofy-core = { path = "../spofy-core" }
+tokio = "0.1.18" # TODO: I'd like to phase this out
+toml = "0.5.0"
