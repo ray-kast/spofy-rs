@@ -3,8 +3,10 @@
 #   -glob   exclude files matching glob from the list
 
 # notice format:
-#   ${YEAR} evaluates to the current year
-#   ${FILE} evaluates to the name of the current file
+#   ${YEAR}     the current year
+#   ${FILE}     the name of the current file
+#   ${PROJECT}  the name and description of the current project
+#   ${PROJNAME} the name of the current project
 
 # WARNING: DO NOT TOUCH the notice contents.  Changing them may break files.
 
@@ -20,31 +22,42 @@ format: #The keys are full glob expressions
     end: " %s*/"
     border: "*"
     line: " * %s"
+
+projects:
+  - name: "spofy-core"
+    desc: "the core backend library for Spofy"
+    search:
+      - "+src/spofy-core/**/*"
+  - name: "spofy-cli"
+    desc: "a command-line interface for Spofy"
+    search:
+      - "+src/spofy-cli/**/*"
+
 licenses:
   - name: AGPL v3
     search:
       - "+src/spofy-core/**/*.rs"
     notice: |
-      spofy-rs - the Rust components of Spofy (${FILE})
+      ${PROJECT} (${FILE})
       Copyright (C) 2019-${YEAR} Ryan Schroeder
 
-      spofy-rs is free software: you can redistribute it and/or modify
+      ${PROJNAME} is free software: you can redistribute it and/or modify
       it under the terms of the GNU Affero General Public License as
       published by the Free Software Foundation, either version 3 of the
       License, or (at your option) any later version.
 
-      spofy-rs is distributed in the hope that it will be useful,
+      ${PROJNAME} is distributed in the hope that it will be useful,
       but WITHOUT ANY WARRANTY; without even the implied warranty of
       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
       GNU Affero General Public License for more details.
 
       You should have received a copy of the GNU Affero General Public License
-      along with spofy-rs.  If not, see <https://www.gnu.org/licenses/>.
+      along with ${PROJNAME}.  If not, see <https://www.gnu.org/licenses/>.
   - name: MPL v2
     search:
       - "+src/spofy-cli/**/*.rs"
     notice: |
-      spofy-rs - the Rust components of Spofy (${FILE})
+      ${PROJECT} (${FILE})
       Copyright (C) 2019-${YEAR} Ryan Schroeder
 
       This Source Code Form is subject to the terms of the Mozilla Public

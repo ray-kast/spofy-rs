@@ -38,10 +38,39 @@ def lcs(a, b)
   [curr && curr[-1] || 0, Range.new(startA, stopA, false), Range.new(startB, stopB, false)]
 end
 
+def search_files(search)
+  search = search
+    .group_by{|p| p[0] }
+    .map{|k, v| [k, v.map{|s| s[1..-1] }] }
+    .to_h
+
+  exclude = search.fetch("-", [])
+
+  search
+    .fetch("+")
+    .flat_map{|p| Dir[p] }
+    .select{|f| File.file?(f) }
+    .reject{|f| exclude.any?{|e| File.fnmatch?(f, e) } }
+    .each{|f| yield f }
+end
+
 config = YAML.load(File.open(File.join(File.dirname($0), "license.yaml")))
 
 formats = config.fetch("format", {}).map{|k, v| [k, v] }
+projects = config.fetch("projects", [])
 licenses = config.fetch("licenses", [])
+
+project_map = {}
+
+projects.each do |project|
+  project["header"] = "#{project["name"]} - #{project["desc"]}"
+
+  search_files(project.fetch("search", [])) do |file|
+    raise "Conflicting projects matched #{file.inspect} (#{project_map[file]["name"]} and #{project["name"]})" if project_map[file] && project_map[file] != project
+
+    project_map[file] = project
+  end
+end
 
 plan = {}
 
@@ -61,20 +90,7 @@ licenses.each do |license|
 
   license["notice"] = notice
 
-  search = license.fetch("search", [])
-    .group_by{|p| p[0] }
-    .map{|k, v| [k, v.map{|s| s[1..-1] }] }
-    .to_h
-
-  exclude = search.fetch("-", [])
-
-  files = search
-    .fetch("+")
-    .flat_map{|p| Dir[p] }
-    .select{|f| File.file?(f) }
-    .reject{|f| exclude.any?{|e| File.fnmatch?(f, e) } }
-
-  files.each do |file|
+  search_files(license.fetch("search", [])) do |file|
     raise "Conflicting licenses matched #{file.inspect} (#{plan[file]["name"]} and #{license["name"]})" if plan[file] && plan[file] != license
 
     matches = formats.select{|g, _| File.fnmatch(g, file, File::FNM_EXTGLOB) }
@@ -98,6 +114,7 @@ begin
   plan.each_with_index do |(file, (license, format)), index|
     license_name = license["name"]
     notice = license["notice"]
+    project = project_map[file]
 
     if $stderr.tty?
       $stderr << "\r\e[2K[#{index + 1}/#{n_files}] #{file} (#{license_name})"
@@ -119,8 +136,18 @@ begin
     body = ""
     width = 0
 
+    # TODO: something appears to be wrong with the width calculation
+
     notice.each do |line|
-      curr = format["line"] % [line.gsub(/\$\{\s*FILE\s*\}/i, File.basename(file))]
+      line = line.gsub(/\$\{\s*(\S+)\s*\}/i) do |match|
+        case $1
+        when "PROJECT"; project["header"]
+        when "PROJNAME"; project["name"]
+        when "FILE"; File.basename(file)
+        end
+      end
+
+      curr = format["line"] % [line]
       curr.rstrip!
 
       body << curr << "\n"

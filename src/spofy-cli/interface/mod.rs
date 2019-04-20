@@ -1,6 +1,6 @@
 /********************************************************************
  *
- * spofy-rs - the Rust components of Spofy (mod.rs)
+ * spofy-cli - a command-line interface for Spofy (mod.rs)
  * Copyright (C) 2019-2019 Ryan Schroeder
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
