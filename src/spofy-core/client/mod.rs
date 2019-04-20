@@ -1,53 +1,138 @@
-use failure::Error;
+pub mod auth;
+mod error;
+pub mod scopes;
+
 use futures::prelude::*;
 use hyper::{
   client::HttpConnector,
-  http::{Response, Uri},
-  Body, Client as HyperClient,
+  http::{self, header, request, HttpTryFrom, Uri},
+  Body,
 };
 use hyper_tls::HttpsConnector;
-use std::sync::Arc;
+use std::{
+  cell::RefCell,
+  fmt::Display,
+  sync::{Arc, Mutex},
+};
 
-// TODO: make a module-level error type
+pub use error::*;
 
-fn build_uri<P: AsRef<str>>(path: P) -> Result<Uri, Error> {
-  Ok({
-    let x = Uri::builder()
-      .scheme("https")
-      .authority("api.spotify.com")
-      .path_and_query(&*format!("/v1/{}", path.as_ref()))
-      .build()?;
+pub type Request = http::Request<Body>;
+pub type Response = http::Response<Body>;
 
-    println!("x is {:?}", x);
+pub type HyperClient = hyper::Client<HttpsConnector<HttpConnector>>;
+pub type RcHyperClient = Arc<HyperClient>;
 
-    x
-  })
+struct ClientCore {
+  user_agent: String,
+  auth_token: Mutex<Option<String>>,
+  client: RcHyperClient,
 }
 
-pub struct Client {
-  client: Arc<HyperClient<HttpsConnector<HttpConnector>, Body>>,
-}
+type RcClientCore = Arc<ClientCore>;
 
-impl Client {
-  pub fn new() -> Result<Self, Error> {
+pub struct Client(RcClientCore);
+
+impl ClientCore {
+  fn new<U: Display>(user_agent: U) -> Result<Self, ClientError> {
     let https = HttpsConnector::new(4)?;
 
-    let client = HyperClient::builder().build::<_, Body>(https);
+    let client = hyper::Client::builder().build::<_, Body>(https);
 
-    Ok(Client {
+    Ok(ClientCore {
+      user_agent: format!("{} (spofy-core v{})", user_agent, env!("CARGO_PKG_VERSION")),
+      auth_token: Mutex::new(None),
       client: Arc::new(client),
     })
   }
 
-  pub fn get<E: AsRef<str>>(
-    &self,
-    endpoint: E,
-  ) -> impl Future<Item = Response<Body>, Error = Error> + 'static
-  {
-    let client = Arc::clone(&self.client);
+  fn put_token(&self, tok: String) { *self.auth_token.lock().unwrap() = Some(tok) }
 
-    build_uri(endpoint)
-      .into_future()
-      .and_then(move |u| client.get(u).from_err())
+  fn create_request(&self, authorize: bool) -> Result<request::Builder, ClientError> {
+    let mut req = http::Request::builder();
+
+    req.header(header::USER_AGENT, &*self.user_agent);
+
+    if authorize {
+      match &*self.auth_token.lock().unwrap() {
+        Some(ref s) => {
+          req.header(header::AUTHORIZATION, format!("bearer {}", s));
+        },
+        None => return Err(ClientError::NoAuthToken),
+      }
+    }
+
+    Ok(req)
   }
+
+  fn create_basic_request<M, P: AsRef<str>, B: Into<Option<Body>>>(
+    &self,
+    authorize: bool,
+    method: M,
+    path: P,
+    body: B,
+  ) -> Result<Request, ClientError>
+  where
+    http::Method: HttpTryFrom<M>,
+  {
+    Ok(
+      self
+        .create_request(authorize)?
+        .method(method)
+        .uri(build_uri(path)?)
+        .body(match body.into() {
+          Some(b) => b,
+          None => Body::empty(),
+        })?,
+    )
+  }
+
+  fn request(&self, req: Request) -> impl Future<Item = Response, Error = ClientError> {
+    println!("{:#?}", req);
+
+    // TODO: handle ratelimiting
+
+    self.client.request(req).from_err()
+  }
+}
+
+impl Client {
+  pub fn new<U: Display>(user_agent: U) -> Result<Self, ClientError> {
+    Ok(Client(Arc::new(ClientCore::new(user_agent)?)))
+  }
+
+  pub fn put_token(&self, tok: String) { self.0.put_token(tok) }
+
+  pub fn request<M, P: AsRef<str>, B: Into<Option<Body>>>(
+    &self,
+    authorize: bool,
+    method: M,
+    path: P,
+    body: B,
+  ) -> impl Future<Item = Response, Error = ClientError>
+  where
+    http::Method: HttpTryFrom<M>,
+  {
+    let core = Arc::clone(&self.0);
+
+    self
+      .0
+      .create_basic_request(authorize, method, path, body)
+      .into_future()
+      .and_then(move |req| core.request(req))
+      .map(|res| {
+        println!("{:#?}", res);
+        res
+      })
+  }
+}
+
+fn build_uri<P: AsRef<str>>(path: P) -> Result<Uri, ClientError> {
+  Ok(
+    Uri::builder()
+      .scheme("https")
+      .authority("api.spotify.com")
+      .path_and_query(&*format!("/v1/{}", path.as_ref()))
+      .build()?,
+  )
 }

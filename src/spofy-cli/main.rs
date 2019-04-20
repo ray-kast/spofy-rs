@@ -1,14 +1,9 @@
-#[macro_use]
-extern crate failure_derive;
-
-#[macro_use]
-extern crate serde_derive;
-
 mod interface;
 
 use dotenv::dotenv;
 use failure::Error;
-use futures::prelude::*;
+use futures::{future, prelude::*};
+use directories::BaseDirs;
 use interface::{cli, config};
 use spofy_core::client::Client;
 use std::{
@@ -29,21 +24,48 @@ fn main() {
 }
 
 fn run() -> Result<(), Error> {
-  let args = cli::parse();
+  let _args = cli::parse(); // NB: do this first because it might exit early
 
-  println!("{:#?}", args);
+  let _base_dirs = match BaseDirs::new() {
+    Some(d) => d,
+    None => panic!(), // TODO: deal with the fact that NoneError can't be converted to failure::Error
+  };
 
-  let _ = dotenv();
+  match dotenv() {
+    Ok(_) => {},
+    Err(ref e) if e.not_found() => {},
+    Err(e) => writeln!(io::stderr(), "dotenv failed: {}", e).unwrap(),
+  }
 
   let conf = config::read()?;
+  let client = Client::new(format!("spofy-cli v{}", env!("CARGO_PKG_VERSION")))?;
 
-  println!("{:#?}", conf);
+  println!(
+    "{:?}",
+    spofy_core::client::auth::authcode_uri(
+      &conf.auth.id,
+      "http://rk1024.net",
+      "frick",
+      {
+        use spofy_core::client::scopes::*;
 
-  let client = Client::new()?;
+        &[
+          playlist::MODIFY_PRIVATE,
+          playlist::MODIFY_PUBLIC,
+          playlist::READ_PRIVATE,
+          user::MODIFY_LIBRARY,
+          user::READ_CURRENTLY_PLAYING,
+          user::READ_LIBRARY,
+          user::READ_PLAYBACK_STATE,
+        ]
+      },
+      false
+    )
+  );
 
-  tokio::run(
+  tokio::run(future::lazy(move || {
     client
-      .get("/")
+      .request(true, "GET", "", None)
       .and_then(|res| {
         println!("Response status: {}", res.status());
 
@@ -57,8 +79,8 @@ fn run() -> Result<(), Error> {
           })
           .from_err()
       })
-      .map_err(|e| println!("ERROR: {}", e)),
-  );
+      .map_err(|e| println!("ERROR: {}", e))
+  }));
 
   Ok(())
 }

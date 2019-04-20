@@ -1,3 +1,5 @@
+use failure_derive::Fail;
+use serde_derive::Deserialize;
 use std::{
   borrow::Cow,
   env,
@@ -25,7 +27,7 @@ pub struct Config {
 
 #[derive(Debug, Deserialize)]
 pub struct AuthConfig {
-  pub token: String,
+  pub id: String,
   pub secret: String,
 }
 
