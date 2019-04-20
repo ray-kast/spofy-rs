@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "The core backend for the Spofy client."
 authors = ["rookie1024 <rookie1286@gmail.com>"]
 edition = "2018"
+license = "AGPL-3.0-or-later"
 
 [lib]
 name = "spofy_core"

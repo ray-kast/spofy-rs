@@ -11,8 +11,6 @@ use std::{
   process::exit,
 };
 
-// TODO: LICENSE YER DAMN CODE
-
 fn main() {
   match run() {
     Ok(()) => {},
@@ -44,7 +42,7 @@ fn run() -> Result<(), Error> {
     "{:?}",
     spofy_core::client::auth::authcode_uri(
       &conf.auth.id,
-      "http://rk1024.net",
+      "http://rk1024.net/oauth",
       "frick",
       {
         use spofy_core::client::scopes::*;

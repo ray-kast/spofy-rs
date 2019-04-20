@@ -10,7 +10,6 @@ use hyper::{
 };
 use hyper_tls::HttpsConnector;
 use std::{
-  cell::RefCell,
   fmt::Display,
   sync::{Arc, Mutex},
 };

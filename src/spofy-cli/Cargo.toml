@@ -4,6 +4,7 @@ version ="0.1.0"
 description = "A command-line interface for Spofy."
 authors = ["rookie1024 <rookie1286@gmail.com>"]
 edition = "2018"
+license = "MPL-2.0"
 
 [[bin]]
 name = "spofy"
